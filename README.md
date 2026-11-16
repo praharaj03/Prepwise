@@ -24,6 +24,12 @@ The browser Firebase configuration is in `firebase/client.ts`. It must point to 
 
 Keep service-account JSON files and `.env.local` out of version control. The application reads Admin credentials from the environment; it does not need a JSON key file in the repository.
 
+## Vercel deployment
+
+Import this repository with the repository root (`.`) as the Root Directory and add the environment variables above to the Production environment. `vercel.json` pins the Next.js framework preset, `npm run build`, and the `.next` output directory so Vercel packages the server routes correctly.
+
+After changing build settings, create a new deployment. A successful `next build` alone is not enough if Vercel is configured to publish the app as a generic static site; that can result in a platform `404 NOT_FOUND` for every route.
+
 ## Firestore indexes
 
 The dashboard works without manually created composite indexes. When Firebase reports a missing index, it falls back to single-field queries: your interviews are sorted on the server, and available interviews are read in chronological pages and filtered until the requested count is reached.
