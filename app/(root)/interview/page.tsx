@@ -1,21 +1,5 @@
-import Agent from "@/components/Agent";
-import { getCurrentUser } from "@/lib/actions/auth.action";
-import { redirect } from "next/navigation";
+﻿import GenerationForm from "@/components/GenerationForm";
 
-const page = async () => {
-  const user = await getCurrentUser();
-  if (!user) redirect("/sign-in");
-  return (
-    <>
-      <h3>Interview generation</h3>
-
-      <Agent
-        userName={user.name}
-        userId={user.id}
-        type="generate"
-      />
-    </>
-  );
-};
-
-export default page;
+export default function CreateInterviewPage() {
+  return <><div className="page-heading"><div><span className="eyebrow">PREPARATION, WITH A PURPOSE</span><h1>Your next great <span>conversation.</span></h1><p>Pick a role and build a free practice set. No sign-in or API key needed.</p></div><span className="step-badge">01 <span>/</span> BUILD YOUR INTERVIEW</span></div><GenerationForm /></>;
+}

@@ -1,7 +1,3 @@
-import AuthForm from '@/components/AuthForm'
+﻿import { redirect } from "next/navigation";
 
-const page = () => {
-  return <AuthForm type="sign-up" />
-}
-
-export default page
+export default function SignUpPage() { redirect("/"); }

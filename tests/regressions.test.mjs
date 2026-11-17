@@ -5,9 +5,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { useForm } from "react-hook-form";
 import { loadModule } from "./load-module.mjs";
 
-function authFixture({ claims = {}, profile, rejected = false, session } = {}) {
+function authFixture({ claims = {}, profile, rejected = false, session, legacySession, sessionError } = {}) {
   const profiles = new Map(profile ? [["verified-user", profile]] : []);
   const writtenCookies = [];
+  const deletedCookies = [];
+  let sessionChecks = 0;
   let tokenChecks = 0;
   const decoded = {
     uid: "verified-user", email: "user@example.com", name: "Test User",
@@ -21,7 +23,7 @@ function authFixture({ claims = {}, profile, rejected = false, session } = {}) {
           if (rejected) throw new Error("Invalid token");
           return decoded;
         },
-        verifySessionCookie: async () => decoded,
+        verifySessionCookie: async () => { sessionChecks++; if (sessionError) throw sessionError; return decoded; },
         createSessionCookie: async () => "signed-cookie",
       },
       db: {
@@ -35,11 +37,12 @@ function authFixture({ claims = {}, profile, rejected = false, session } = {}) {
       },
     },
     "next/headers": { cookies: async () => ({
-      get: () => session ? { value: session } : undefined,
+      get: (name) => { const value = name === "session" ? legacySession : session; return value ? { value } : undefined; },
       set: (...args) => writtenCookies.push(args),
+      delete: (name) => deletedCookies.push(name),
     }) },
   });
-  return { actions, profiles, writtenCookies, tokenChecks: () => tokenChecks };
+  return { actions, profiles, writtenCookies, deletedCookies, tokenChecks: () => tokenChecks, sessionChecks: () => sessionChecks };
 }
 
 test("signup uses verified identity and is safe to retry", async () => {
@@ -71,7 +74,7 @@ test("sign-in recovers a missing profile and creates an HTTP-only session", asyn
   const { actions, profiles, writtenCookies } = authFixture();
   assert.equal((await actions.signIn({ email: "user@example.com", idToken: "valid" })).success, true);
   assert.equal(profiles.get("verified-user").name, "Test User");
-  assert.equal(writtenCookies[0][0], "session");
+  assert.match(writtenCookies[0][0], /^prepwise-session(?:-|$)/);
   assert.equal(writtenCookies[0][2].httpOnly, true);
   assert.equal(writtenCookies[0][2].maxAge, 604800);
 });
@@ -86,6 +89,22 @@ test("missing sessions return null without token verification", async () => {
   const { actions, tokenChecks } = authFixture();
   assert.equal(await actions.getCurrentUser(), null);
   assert.equal(tokenChecks(), 0);
+});
+
+test("a legacy cookie from another Firebase project is ignored without verification", async () => {
+  const { actions, sessionChecks } = authFixture({ legacySession: "old-project-cookie" });
+  assert.equal(await actions.getCurrentUser(), null);
+  assert.equal(sessionChecks(), 0);
+});
+
+test("expired or wrong-project cookies are treated as signed out without a console error", async (t) => {
+  const log = t.mock.method(console, "error", () => {});
+  for (const code of ["auth/argument-error", "auth/session-cookie-expired", "auth/session-cookie-revoked"]) {
+    const sessionError = Object.assign(new Error("Invalid session"), { code });
+    const { actions } = authFixture({ session: "invalid", sessionError });
+    assert.equal(await actions.getCurrentUser(), null);
+  }
+  assert.equal(log.mock.callCount(), 0);
 });
 
 function routeFixture({ user = null, invalidToken = false, output, generationError } = {}) {

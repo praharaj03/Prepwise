@@ -1,13 +1,14 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 
-export default function InterviewError({ reset }: { reset: () => void }) {
+export default function InterviewError({ retry }: { retry: () => void }) {
   return (
-    <div className="flex flex-col items-start gap-4" role="alert">
-      <h2>Unable to load interviews</h2>
-      <p>Please try again in a moment.</p>
-      <Button className="btn-primary" onClick={reset}>Try again</Button>
+    <div className="error-panel panel" role="alert">
+      <span className="square-icon"><RefreshCw size={21} /></span>
+      <h2>Let’s give that another try.</h2>
+      <p>We couldn’t load your workspace. Your preparation is worth coming back to. Please try again in a moment.</p>
+      <button className="primary-button" onClick={retry}>Try again <RefreshCw size={15} /></button>
     </div>
   );
 }

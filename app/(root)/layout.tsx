@@ -1,26 +1,6 @@
-import Link from "next/link";
-import Image from "next/image";
-import { ReactNode } from "react";
-import { redirect } from "next/navigation";
+﻿import { ReactNode } from "react";
+import WorkspaceNav, { WorkspaceHeader } from "@/components/WorkspaceNav";
 
-import { isAuthenticated } from "@/lib/actions/auth.action";
-
-const Layout = async ({ children }: { children: ReactNode }) => {
-  const isUserAuthenticated = await isAuthenticated();
-  if (!isUserAuthenticated) redirect("/sign-in");
-
-  return (
-    <div className="root-layout">
-      <nav>
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.svg" alt="MockMate Logo" width={38} height={32} />
-          <h2 className="text-primary-100">PrepWise</h2>
-        </Link>
-      </nav>
-
-      {children}
-    </div>
-  );
-};
-
-export default Layout;
+export default function Layout({ children }: { children: ReactNode }) {
+  return <div className="workspace"><a className="skip-link" href="#main-content">Skip to content</a><WorkspaceNav /><div className="workspace-body"><WorkspaceHeader /><main id="main-content" className="workspace-content">{children}</main><footer className="workspace-footer"><span>Made for your next chapter.</span><span>PrepWise · Practice with purpose</span></footer></div></div>;
+}

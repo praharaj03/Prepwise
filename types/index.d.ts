@@ -24,6 +24,10 @@ interface Interview {
   type: string;
   finalized: boolean;
   coverImage?: string;
+  company?: string;
+  companyLogo?: string;
+  difficulty?: "Easy" | "Medium" | "Hard";
+  lastResult?: import("@/lib/interview-bot").InterviewReport;
 }
 
 interface CreateFeedbackParams {
@@ -47,6 +51,13 @@ interface InterviewCardProps {
   techstack: string[];
   createdAt?: string;
   coverImage?: string;
+  questions?: string[];
+  template?: boolean;
+  onDelete?: () => void;
+  company?: string;
+  companyLogo?: string;
+  difficulty?: "Easy" | "Medium" | "Hard";
+  lastResult?: import("@/lib/interview-bot").InterviewReport;
 }
 
 interface AgentProps {

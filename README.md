@@ -1,72 +1,38 @@
-# PrepWise
+﻿# PrepWise
 
-AI interview practice built with Next.js 16, Firebase Authentication / Firestore, Vapi, and the Vercel AI SDK with Groq.
+A dark interview-practice workspace built with Next.js 16 and React 19. No sign-in is required. Interviews and results save in the current browser.
 
-## Local development
+## Run
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Create `.env.local` with these variables:
+Open `http://localhost:3000`. Solo practice and the 10 sample interviews work without any environment variables. For the adaptive AI video interview, copy `.env.example` to `.env.local` and set the server-only `GROQ_API_KEY`. Credentials are not included in the repository.
 
-```dotenv
-NEXT_PUBLIC_VAPI_WEB_TOKEN=your-vapi-public-key
-NEXT_PUBLIC_VAPI_ASSISTANT_ID=your-interview-generation-assistant-id
-GROQ_API_KEY=your-groq-api-key
-FIREBASE_PROJECT_ID=your-firebase-project-id
-FIREBASE_CLIENT_EMAIL=your-firebase-service-account-email
-FIREBASE_PRIVATE_KEY="your-private-key-with-escaped-newlines"
-```
+## Interview flow
 
-The browser Firebase configuration is in `firebase/client.ts`. It must point to the same project as the Admin SDK. Enable Email/Password authentication and authorize the application domain in Firebase Authentication.
+1. Choose a sample interview or create one for a role, experience level, question complexity, and skills.
+2. Open **AI video interview**, select **Enable camera & microphone**, and allow both devices. The **Start video interview** button becomes enabled once both are ready.
+3. The bot asks one role-specific question at a time. Use **Mute microphone / Unmute microphone** during the interview; muting stops recognition and disables the microphone track while keeping camera preview and typed answers available. Your webcam is a local preview; the interviewer is an animated bot avatar.
+4. Answer through the microphone or type and select **Send answer**. Spoken answers are sent after the browser finishes recognizing the turn. The bot gives feedback and asks an adaptive next question.
+5. The final report shows **Selected** or **Rejected**, a score, category breakdown, strengths, and improvements. Results save locally and can be downloaded with the transcript.
 
-Keep service-account JSON files and `.env.local` out of version control. The application reads Admin credentials from the environment; it does not need a JSON key file in the repository.
+The result is a mock-interview outcome, not a hiring decision by a real company. The server uses a threshold of 70/100. Ending early counts unanswered questions as zero. The model evaluates text answers, not camera footage or personal appearance.
 
-## Vercel deployment
+## Free and optional features
 
-Import this repository with the repository root (`.`) as the Root Directory and add the environment variables above to the Production environment. `vercel.json` pins the Next.js framework preset, `npm run build`, and the `.next` output directory so Vercel packages the server routes correctly.
+- Browser camera preview, read-aloud, optional browser speech recognition, local storage, and solo practice do not use Vapi credits.
+- AI replies use Groq’s `openai/gpt-oss-20b` by default. A working key and available account quota are required. The model appears in Groq’s free-plan limits; usage is not unlimited. Set `GROQ_INTERVIEW_MODEL` only to override the default. [Groq limits](https://console.groq.com/docs/rate-limits).
+- The free solo mode uses a curated question bank and has no AI scoring.
+- Ten independent company-themed sample sets include locally bundled logos for NVIDIA, Oracle, Zomato, SpaceX, Swiggy, Apple, Google, Microsoft, Amazon, and Netflix. These are not official company questions.
 
-After changing build settings, create a new deployment. A successful `next build` alone is not enough if Vercel is configured to publish the app as a generic static site; that can result in a platform `404 NOT_FOUND` for every route.
+Video is not uploaded or recorded. Text answers are sent to Groq for AI evaluation. Browser dictation may use the browser vendor’s speech service. Voice features depend on browser support; typing remains available. [Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API).
 
-## Firestore indexes
+## Your data
 
-The dashboard works without manually created composite indexes. When Firebase reports a missing index, it falls back to single-field queries: your interviews are sorted on the server, and available interviews are read in chronological pages and filtered until the requested count is reached.
-
-For larger collections, the two composite indexes in `firestore.indexes.json` make those reads more efficient. Optionally deploy them using a Firebase account with index-management permission:
-
-```sh
-npx firebase-tools deploy --only firestore:indexes --project YOUR_FIREBASE_PROJECT_ID
-```
-
-Once the indexes are ready, the dashboard automatically uses the indexed queries. A service account with only application data access cannot create indexes. Other database errors, such as denied access or connection failures, still surface normally.
-
-## Vapi generation tool
-
-The generation assistant must call the public application URL at `POST /api/vapi/generate` with this JSON body:
-
-```json
-{
-  "type": "Technical",
-  "role": "Frontend Developer",
-  "level": "Junior",
-  "techstack": "React, TypeScript",
-  "amount": 5,
-  "userid": "{{userId}}"
-}
-```
-
-Configure the tool's request headers as:
-
-```text
-Content-Type: application/json
-Authorization: Bearer {{idToken}}
-```
-
-The browser supplies `userName`, `userId`, `userid`, and `idToken` through Vapi's assistant variable overrides when starting the call. Bind `userid` and the Authorization header to those variables directly; do not ask the model to invent them or include the token in the assistant's conversational prompt. The server verifies the token and rejects mismatched user IDs. Requests made directly from the app may instead use its authenticated session cookie.
-
-The endpoint accepts between 1 and 20 questions, validates model output before saving, and returns `{ "success": true, "interviewId": "..." }`. Calls need microphone permission and a configured Vapi account. Voice practice uses the questions from the selected interview. Feedback scoring and persistence are not implemented yet.
+Libraries and mock reports use localStorage for this browser and site address. They do not sync between devices or ports. Use **Export library** and **Import backup** to move or protect them. Clearing browser data removes the local library. Solo answer notes are session-only until downloaded; AI reports save locally.
 
 ## Checks
 
@@ -77,4 +43,19 @@ npm test
 npm run build
 ```
 
-The regression suite mocks Firebase and AI service boundaries; it does not create accounts or spend generation credits. The production build downloads Geist fonts from Google Fonts and needs network access.
+The repeatable browser-flow check uses installed Google Chrome with synthetic camera and microphone devices:
+
+```sh
+npm run build
+npm run test:e2e
+```
+
+It covers all 10 company samples, device permissions, microphone controls, recognition callbacks, both mock outcomes, browser persistence, backups, and desktop/mobile layouts. AI replies are mocked by default. To also run a real five-answer interview through the browser and Groq, use `npm run test:e2e -- --live`; this needs the configured server key and uses its quota. Screenshots and downloaded test artifacts stay in the ignored `.tmp` folder. `PLAYWRIGHT_CHANNEL` can override the default `chrome` channel.
+
+Fonts and logos are bundled locally. Builds do not download Google Fonts. The app can build with all service settings blank; AI calls then return an explicit setup error and solo practice remains usable.
+
+## Optional legacy cloud integration
+
+The authenticated Firebase/Groq endpoint at `/api/vapi/generate` and Vapi voice component are retained for optional integrations. The default UI does not use them. Firebase SDK instances and session cookies are project-scoped; old project cookies do not gate the current workspace. `.env.local` and service-account JSON remain ignored by Git. Private credentials must never use a `NEXT_PUBLIC_` prefix.
+
+See [SETUP.md](SETUP.md) for setup, [VERIFICATION.md](VERIFICATION.md) for tested flows and remaining findings, and [logo sources](public/companies/SOURCES.md) for attribution.

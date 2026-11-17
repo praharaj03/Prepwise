@@ -1,25 +1,33 @@
-// Import the functions you need from the SDKs you need
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-// import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyCxcLU9GTrAQF9ADlFA_b3ThC3-4FWQ4RM",
-  authDomain: "intervu-1a3d7.firebaseapp.com",
-  projectId: "intervu-1a3d7",
-  storageBucket: "intervu-1a3d7.firebasestorage.app",
-  messagingSenderId: "275683814058",
-  appId: "1:275683814058:web:40ce59f61824d81187bed3",
-  measurementId: "G-RLXD60V2GX"
-};
+function getClientApp() {
+  const firebaseConfig = {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  };
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  if (!firebaseConfig.apiKey || !firebaseConfig.authDomain ||
+    !firebaseConfig.projectId || !firebaseConfig.appId) {
+    throw new Error("Firebase sign-in is not configured. Add the Firebase web app settings to .env.local and restart the app.");
+  }
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+  const appName = "prepwise-" + firebaseConfig.projectId;
+  return getApps().some((app) => app.name === appName)
+    ? getApp(appName)
+    : initializeApp(firebaseConfig, appName);
+}
+
+// Initialize on use so missing web settings do not crash the sign-in page.
+export function getClientAuth() {
+  return getAuth(getClientApp());
+}
+
+export function getClientDb() {
+  return getFirestore(getClientApp());
+}

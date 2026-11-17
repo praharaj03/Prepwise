@@ -1,59 +1,12 @@
-import { interviewCovers } from "@/constants";
-import dayjs from "dayjs";
+﻿import dayjs from "dayjs";
 import Image from "next/image";
-import { Button } from "./ui/button";
 import Link from "next/link";
+import { ArrowUpRight, CalendarDays, Code2, MessageCircle, FileText, Trash2 } from "lucide-react";
 import DisplayTechIcons from "./DisplayTechIcons";
 
-const InterviewCard = ({ id, role, type, techstack, createdAt, coverImage }: InterviewCardProps) => {
-  const normalizedType = /mix/gi.test(type) ? "Mixed" : type;
-  const formattedDate = createdAt && dayjs(createdAt).isValid()
-    ? dayjs(createdAt).format("MMM D, YYYY")
-    : "Date unavailable";
-  const coverIndex = Array.from(id).reduce((sum, character) => sum + character.charCodeAt(0), 0) % interviewCovers.length;
-  const cover = coverImage?.startsWith("/covers/") ? coverImage : `/covers${interviewCovers[coverIndex]}`;
-  return (
-    <div className="card-border w-[360px] max-sm:w-full min-h-96">
-      <div className="card-interview">
-        <div>
-          <div className="absolute top-0 right-0 w-fit px-4 py-2 rounded-bl-lg bg-light-600">
-            <p className="badge-text">{normalizedType}</p>
-          </div>
-
-          <Image src={cover} alt="Interview Cover" width={90} height={90} className="rounded-full object-cover size-[90px]" />
-
-          <h3 className="mt-5 capitalize">
-            {role} Interview
-          </h3>
-
-          <div className="flex flex-row gap-5 mt-3">
-            <div className="flex flex-row gap-2">
-              <Image src="/calendar.svg" alt="calendar" width={22} height={22} />
-              <p>{formattedDate}</p>
-            </div>
-
-            <div className="flex flex-row gap-2">
-              <Image src="/star.svg" alt="star" width={22} height={22} />
-              <p>---/100</p>
-            </div>
-          </div>
-          <p className="line-clamp-2 mt-5">
-            You have not taken the interview yet. Take it now to improve your skills.
-          </p>
-        </div>
-
-        <div className="flex flex-row justify-between">
-          <DisplayTechIcons techStack={techstack}/>
-
-          <Button asChild className="btn-primary">
-            <Link href={`/interview/${id}`}>
-              View Interview
-            </Link>
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
+export default function InterviewCard({ id, role, type, techstack, createdAt, questions = [], template = false, onDelete, company, companyLogo, lastResult }: InterviewCardProps) {
+  const normalizedType = /mix/i.test(type) ? "Mixed" : type;
+  const behavioral = /behavior/i.test(type);
+  const formattedDate = createdAt && dayjs(createdAt).isValid() ? dayjs(createdAt).format("MMM D, YYYY") : "Saved interview";
+  return <article className="interview-card"><div className="interview-card-top">{companyLogo ? <span className="company-logo"><Image src={companyLogo} alt={(company || "Company") + " logo"} width={40} height={40} /></span> : <span className={behavioral ? "role-icon teal" : "role-icon violet"}>{behavioral ? <MessageCircle size={23} /> : <Code2 size={23} />}</span>}<div className="card-top-actions"><span className="focus-badge">{normalizedType}</span>{onDelete && <button className="icon-button" type="button" onClick={onDelete} aria-label={"Delete " + role + " interview"}><Trash2 size={14} /></button>}</div></div><div>{company && <span className="company-name">{company}</span>}<h3>{role}</h3><p className="card-description">{behavioral ? "Find the stories that show what you bring to a team." : "Build confidence in the skills that matter for this role."}</p></div><div className="card-meta"><span><FileText size={14} />{questions.length} questions</span><span><CalendarDays size={14} />{template ? "Sample interview" : formattedDate}</span></div><DisplayTechIcons techStack={techstack} />{lastResult && <span className={lastResult.verdict === "SELECTED" ? "outcome-badge selected" : "outcome-badge rejected"}>{lastResult.verdict === "SELECTED" ? "Selected" : "Rejected"} - {lastResult.score}/100</span>}<Link href={"/interview/" + id} className="card-action">Start practice <ArrowUpRight size={17} /></Link></article>;
 }
-
-export default InterviewCard

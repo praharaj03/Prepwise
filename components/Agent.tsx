@@ -1,14 +1,14 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import Image from "next/image";
+import { AudioLines, Clock3, FileText, LoaderCircle, Mic, Phone, PhoneOff, Volume2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { toast } from "sonner";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer } from "@/constants";
-import { auth } from "@/firebase/client";
+import { getClientAuth } from "@/firebase/client";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -22,9 +22,16 @@ const Agent = ({ userName, userId, type, questions }: AgentProps) => {
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
+  const [elapsed, setElapsed] = useState(0);
   const starting = useRef(false);
   const mounted = useRef(false);
   const callStarted = useRef(false);
+
+  useEffect(() => {
+    if (callStatus !== CallStatus.ACTIVE) return;
+    const timer = setInterval(() => setElapsed((seconds) => seconds + 1), 1000);
+    return () => clearInterval(timer);
+  }, [callStatus]);
 
   useEffect(() => {
     mounted.current = true;
@@ -75,30 +82,32 @@ const Agent = ({ userName, userId, type, questions }: AgentProps) => {
   const handleCall = async () => {
     if (starting.current) return;
     if (!process.env.NEXT_PUBLIC_VAPI_WEB_TOKEN ||
-      (type === "generate" && !process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID)) {
+      (type === "generate" && !process.env.NEXT_PUBLIC_VAPI_GENERATION_ASSISTANT_ID)) {
       toast.error("Voice interviews are not configured yet.");
       return;
     }
     starting.current = true;
     callStarted.current = false;
     setMessages([]);
+    setElapsed(0);
     setCallStatus(CallStatus.CONNECTING);
     try {
       let call;
       if (type === "generate") {
+        const auth = getClientAuth();
         await auth.authStateReady();
         const idToken = await auth.currentUser?.getIdToken();
         if (!idToken || auth.currentUser?.uid !== userId) {
           throw new Error("Please sign in again before generating an interview.");
         }
         if (!mounted.current) return;
-        call = await vapi.start(process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID!, {
+        call = await vapi.start(process.env.NEXT_PUBLIC_VAPI_GENERATION_ASSISTANT_ID!, {
           variableValues: { userName, userId, userid: userId, idToken },
         });
       } else {
         if (!questions?.length) throw new Error("This interview has no questions.");
-        call = await vapi.start(interviewer, {
-          variableValues: { questions: questions.join("\n") },
+        call = await vapi.start(process.env.NEXT_PUBLIC_VAPI_INTERVIEW_ASSISTANT_ID || interviewer, {
+          variableValues: { username: userName, userName, questions: questions.join("\n") },
         });
       }
       if (!mounted.current) {
@@ -126,69 +135,17 @@ const Agent = ({ userName, userId, type, questions }: AgentProps) => {
     }
   };
   const lastMessage = messages[messages.length - 1];
-  return (
-    <>
-      <div className="call-view">
-        <div className="card-interviewer">
-          <div className="avatar">
-            <Image
-              src="/ai-avatar.png"
-              alt="vapi"
-              width={65}
-              height={54}
-              className="object-cover"
-            />
-            {isSpeaking && <span className="animate-speak" />}
-          </div>
-          <h3>AI Interviewer</h3>
-        </div>
+  const voiceAvailable = !!process.env.NEXT_PUBLIC_VAPI_WEB_TOKEN;
+  const statusLabel = callStatus === CallStatus.ACTIVE ? "Session in progress" : callStatus === CallStatus.CONNECTING ? "Connecting your call…" : callStatus === CallStatus.FINISHED ? "Session ended" : "Ready when you are";
+  const duration = String(Math.floor(elapsed / 60)).padStart(2, "0") + ":" + String(elapsed % 60).padStart(2, "0");
+  const initials = userName.split(" ").slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase();
 
-        <div className="card-border">
-          <div className="card-content">
-            <Image
-              src="/user-avatar.png"
-              alt="user avatar"
-              width={540}
-              height={540}
-              className="rounded-full object-cover size-[120px]"
-            />
-            <h3>{userName}</h3>
-          </div>
-        </div>
-      </div>
-
-      {messages.length > 0 && (
-        <div className="transcript-border">
-          <div className="transcript" aria-live="polite">
-            <p key={lastMessage} className={cn('transition-opacity duration-500 opacity-0', 'animate-fadeIn opacity-100')}>
-                {lastMessage}
-            </p>
-          </div>
-        </div>
-      )}
-
-      <div className="w-full flex justify-center">
-        {callStatus !== CallStatus.ACTIVE ? (
-          <button type="button" className="relative btn-call" onClick={handleCall}
-            disabled={callStatus === CallStatus.CONNECTING}>
-            <span
-              className={cn(
-                "absolute animate-ping rounded-full opacity-75",
-                callStatus !== CallStatus.CONNECTING && "hidden",
-              )}
-            />
-            <span>
-              {callStatus === "INACTIVE" || callStatus === "FINISHED"
-                ? "Call"
-                : "... "}
-            </span>
-          </button>
-        ) : (
-          <button type="button" className="btn-disconnect" onClick={handleDisconnect}>End</button>
-        )}
-      </div>
-    </>
-  );
+  return <section className="voice-room" aria-label="Voice practice room">
+    <div className="voice-room-bar"><span className={callStatus === CallStatus.ACTIVE ? "call-status live" : "call-status"}><i />{statusLabel}</span><span className="call-timer"><Clock3 size={13} />{duration}</span></div>
+    <div className="participants"><div className="participant"><span className="participant-label">YOUR INTERVIEWER</span><div className={cn("voice-avatar", isSpeaking && "speaking")}><AudioLines size={38} strokeWidth={1.5} /></div><h3>PrepWise interviewer</h3><p>{callStatus === CallStatus.ACTIVE ? isSpeaking ? "Speaking…" : "Listening to you" : "Here to help you prepare"}</p><span className="participant-icon" aria-hidden="true"><Volume2 size={13} /></span></div><div className="participant participant-human"><span className="participant-label">THE NEXT GREAT CANDIDATE</span><div className="human-avatar">{initials}</div><h3>{userName}</h3><p>{callStatus === CallStatus.ACTIVE ? "You’re in the conversation" : "A little more ready, every time"}</p><span className="participant-icon" aria-hidden="true"><Mic size={13} /></span></div></div>
+    <div className="transcript-panel" aria-live="polite" aria-atomic="true"><span className="transcript-label"><FileText size={11} />LIVE TRANSCRIPT</span>{lastMessage ? <p>{lastMessage}</p> : <p className="transcript-placeholder">Your conversation will appear here. Take your time. You’ve got this.</p>}</div>
+    <div className="call-controls">{callStatus === CallStatus.ACTIVE ? <button type="button" className="call-button end-call" onClick={handleDisconnect} aria-label="End voice call"><PhoneOff size={16} />End session</button> : <button type="button" className="call-button" onClick={handleCall} aria-label="Start voice call" disabled={callStatus === CallStatus.CONNECTING || !voiceAvailable}>{callStatus === CallStatus.CONNECTING ? <><LoaderCircle size={16} className="spin" />Connecting…</> : <><Phone size={16} />{callStatus === CallStatus.FINISHED ? "Practice again" : "Start conversation"}</>}</button>}<p>{!voiceAvailable ? "Voice practice isn’t available yet. You can still review your prepared questions below." : callStatus === CallStatus.FINISHED ? "Well done for showing up. Take a moment to reflect, or give it another go." : "Allow microphone access when prompted. Speak naturally, one answer at a time."}</p></div>
+  </section>;
 };
 
 export default Agent;

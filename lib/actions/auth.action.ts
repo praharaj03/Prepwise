@@ -3,6 +3,7 @@
 import { auth, db } from "@/firebase/admin";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { getSessionCookieName } from "@/lib/session";
 
 const ONE_WEEK = 60 * 60 * 24 * 7;
 
@@ -70,17 +71,19 @@ export async function setSessionCookie(idToken: string) {
   const sessionCookie = await auth.createSessionCookie(idToken, {
     expiresIn: ONE_WEEK * 1000,
   });
-  (await cookies()).set("session", sessionCookie, {
+  const cookieStore = await cookies();
+  cookieStore.set(getSessionCookieName(), sessionCookie, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     maxAge: ONE_WEEK,
     path: "/",
     sameSite: "lax",
   });
+  cookieStore.delete("session");
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  const sessionCookie = (await cookies()).get("session")?.value;
+  const sessionCookie = (await cookies()).get(getSessionCookieName())?.value;
   if (!sessionCookie) return null;
 
   try {
@@ -93,11 +96,19 @@ export async function getCurrentUser(): Promise<User | null> {
     }
     return { id: user.id, name: data.name, email: data.email };
   } catch (error) {
-    console.error("Error getting current user", error);
+    const expectedCodes = ["auth/argument-error", "auth/session-cookie-expired", "auth/session-cookie-revoked", "auth/invalid-session-cookie", "auth/user-not-found", "auth/user-disabled"];
+    const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+    if (typeof code !== "string" || !expectedCodes.includes(code)) console.error("Error getting current user", error);
     return null;
   }
 }
 
 export async function isAuthenticated() {
   return !!(await getCurrentUser());
+}
+
+export async function clearSession() {
+  const cookieStore = await cookies();
+  cookieStore.delete(getSessionCookieName());
+  cookieStore.delete("session");
 }
